@@ -1,0 +1,125 @@
+---
+title: "Predicting Excercise Quality from Accelerometer Data on Personal Fitness Devices (Course Project for Machine Learning)"
+
+author: "Eugene Tsuprun"
+date: "September 20, 2015"
+output: html_document
+---
+
+# Overview
+
+Hi, my name is Eugene Tsuprun. This is the course project on machine learning from JSU through Coursera.
+
+We have a dataset with accelerometer data from six participants doing barbell lift exercises, along with a rating of whether they were doing the exercise correctly and, if not, the manner in which they were doing it incorrectly.  These ratings are included in the classe column of our dataset.
+
+The objective is to build a model that predicts the rating of the manner the exercise was performed (i.e., the classe variable).
+
+
+# Getting, Cleaning, and Preparing the Data
+
+Many measurements in the dataset have mostly NA or blank values, so we'll go ahead and take those out of the model. We'll also take away the variables that we don't think will be valuable in out-of-sample prediction, such as timestamps and user IDs.
+
+We'll separate the dataset into training and testing, with a ratio of 65% and 35% respectively.
+
+
+```{r, cache=TRUE}
+# Load the libraries and data
+require(caret)
+require(curl)
+set.seed(100)
+
+
+if(!file.exists("pml-training.csv")) {
+  write.csv(pmldata<-read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),
+    "pml-training.csv"
+  )
+} else {
+  pmldata<-read.csv("pml-training.csv")  
+}
+
+# Take out columns that have NA values. It looks like all the columns that have any NA values have a lot of them, so we won't take them into account. 
+
+pmldata<-pmldata[,!sapply(pmldata,function(x) any(is.na(x)))]
+
+# Take out column where more than 90% of the values are blank.
+
+pmldata<-pmldata[, !sapply(pmldata,function(x) (length(x[x==""])/length(x)>.9))]
+
+# Take out this variable because only 406 out of 19622 values are "no" (the rest are "yes").
+pmldata$new_window<-NULL
+
+# Take out username, sequence number, and timestamps
+pmldata$X<-NULL
+pmldata$user_name<-NULL
+pmldata$raw_timestamp_part_1<-NULL
+pmldata$raw_timestamp_part_2<-NULL
+pmldata$cvtd_timestamp<-NULL
+pmldata$num_window<-NULL
+
+# Partition data 
+
+train.index<-createDataPartition(pmldata$classe, p=.65,list=F)
+training<-pmldata[train.index, ]
+testing<-pmldata[-train.index,]
+```
+
+# Building the Model
+
+We train a random forest model on our 65% partition.
+
+```{r, cache=TRUE}
+
+# Load the random forest object if it already exists. 
+
+if (file.exists("rf.fit.Rdata")) {
+  load("rf.fit.Rdata")
+} else {
+  rf.fit<-train(classe~.,data=training,method="rf")
+  save(rf.fit,file="rf.fit.Rdata")
+}
+
+```
+
+# Evaluating the Model
+
+```{r, cache=TRUE}
+
+confusion<-confusionMatrix(predict(rf.fit,newdata=testing),testing$classe)
+print(confusion)
+```
+
+The model is `r round(confusion[3][[1]][[1]]*100,2)`% accurate on the testing sample. The out-of-sample error rate is estimated at  `r 100-round(confusion[3][[1]][[1]]*100,2)`%.
+
+Not bad.
+
+Just for fun, let's compare it to a decision tree model and a gbm model.
+
+```{r, cache=TRUE}
+
+rpart.fit<-train(classe~.,data=training,method="rpart")
+
+# Load the gbm model if it already exists. 
+
+if (file.exists("gbm.fit.Rdata")) {
+  load("gbm.fit.Rdata")
+} else {
+  gbm.fit<-train(classe~.,data=training,method="gbm")
+  save(gbm.fit,file="gbm.fit.Rdata")
+}
+
+rpart.confusion<-confusionMatrix(predict(rpart.fit,newdata=testing),testing$classe)
+gbm.confusion<-confusionMatrix(predict(gbm.fit,newdata=testing),testing$classe)
+
+
+```
+
+The decision tree model model is `r round(rpart.confusion[3][[1]][[1]]*100,2)`% accurate on the testing sample. The gbm model is `r round(gbm.confusion[3][[1]][[1]]*100,2)`% accurate.
+
+Random forest wins at `r round(confusion[3][[1]][[1]]*100,2)`%.
+
+
+# Reference
+
+Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6.
+
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3mwhi3Z8c
