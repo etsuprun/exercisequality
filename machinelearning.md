@@ -8,7 +8,7 @@ output: html_document
 
 # Overview
 
-Hi, my name is Eugene Tsuprun. This is the course project on machine learning from JSU through Coursera.
+Hi, my name is Eugene Tsuprun. This is the course project on machine learning from JHU through Coursera.
 
 We have a dataset with accelerometer data from six participants doing barbell lift exercises, along with a rating of whether they were doing the exercise correctly and, if not, the manner in which they were doing it incorrectly.  These ratings are included in the classe column of our dataset.
 
